@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 st.set_page_config(
-    page_title="2028 내신 종합 분석 및 38개대 실전 환산기",
+    page_title="2028 내신 계산기",
     page_icon="🎓",
     layout="wide"
 )
@@ -73,8 +73,8 @@ UNIV_DATABASE = {
     "부산교대": {"group": "교대", "points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:95, 3:88, 4:75, 5:45}}
 }
 
-st.title("🎓 2028 개편 내신 종합 분석 및 38개대 실전 환산기")
-st.markdown("### 석차 산출형 진로선택과목 완벽 지원 버전 (경희대형 80:20 결합식 유지)")
+st.title("🎓 2028 개편 내신 계산기")
+st.markdown("### 석차 산출")
 st.write("---")
 
 if 'subjects_data' not in st.session_state:
