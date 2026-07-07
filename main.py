@@ -34,7 +34,7 @@ UNIV_DATABASE = {
     "고려대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98, 3:94, 4:86, 5:70, 6:50, 7:30, 8:10, 9:0}, "points_5": {1:100, 2:98, 3:93, 4:82, 5:60}},
     "서강대": {"group": "수도권 상위대학", "points_9": {1:100, 2:99, 3:97, 4:90, 5:80, 6:70, 7:50, 8:30, 9:0}, "points_5": {1:100, 2:99, 3:96, 4:85, 5:65}},
     "성균관대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98, 3:95, 4:85, 5:70, 6:50, 7:30, 8:10, 9:0}, "points_5": {1:100, 2:98, 3:94, 4:80, 5:60}},
-    "한양대": {"group": "수도권 상위대학", "points_9": {1:100, 2:97, 3:94, 4:88, 5:75, 5:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:97, 3:93, 4:84, 5:55}},
+    "한양대": {"group": "수도권 상위대학", "points_9": {1:100, 2:97, 3:94, 4:88, 5:75, 6:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:97, 3:93, 4:84, 5:55}},
     "이화여대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98, 3:96, 4:90, 5:80, 6:60, 7:40, 8:20, 9:0}, "points_5": {1:100, 2:98, 3:95, 4:86, 5:60}},
     "중앙대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98.5, 3:96.5, 4:92, 5:85, 6:70, 7:50, 8:30, 9:0}, "points_5": {1:100, 2:98.5, 3:95.5, 4:88, 5:65}},
     "경희대": {"group": "수도권 상위대학", "points_9": {1:100, 2:96, 3:89, 4:77, 5:60, 6:40, 7:23, 8:11, 9:0}, "points_5": {1:100, 2:98, 3:94, 4:82, 5:55}},
@@ -73,15 +73,15 @@ UNIV_DATABASE = {
 }
 
 st.title("🎓 2028 개편 내신 종합 분석 및 38개대 실전 환산기")
-st.markdown("### 과목별 정밀 성적 분석 기능 및 38개 대학 결합 환산 통합 대시보드")
+st.markdown("### 2022 개정 교육과정 최적화 버전 (불필요한 옛 산출식 제거)")
 st.write("---")
 
 if 'subjects_data' not in st.session_state:
     st.session_state.subjects_data = [
-        {"category": "수학", "name": "대수", "type": "일반(공통)", "rank": 5, "total": 200, "achievement": "A", "a_ratio": 0.0, "hours": 4},
-        {"category": "수학", "name": "기하", "type": "진로선택", "rank": 1, "total": 200, "achievement": "A", "a_ratio": 30.0, "hours": 3},
-        {"category": "국어", "name": "독서와 작문", "type": "일반(공통)", "rank": 14, "total": 200, "achievement": "A", "a_ratio": 0.0, "hours": 4},
-        {"category": "과학", "name": "물리학Ⅱ", "type": "진로선택", "rank": 1, "total": 200, "achievement": "B", "a_ratio": 25.0, "hours": 3}
+        {"category": "수학", "name": "대수", "type": "일반(공통)", "rank": 5, "total": 200, "achievement": "A", "hours": 4},
+        {"category": "수학", "name": "기하", "type": "진로선택", "rank": 1, "total": 200, "achievement": "A", "hours": 3},
+        {"category": "국어", "name": "독서와 작문", "type": "일반(공통)", "rank": 14, "total": 200, "achievement": "A", "hours": 4},
+        {"category": "과학", "name": "물리학Ⅱ", "type": "진로선택", "rank": 1, "total": 200, "achievement": "B", "hours": 3}
     ]
 
 col_left, col_right = st.columns([5, 4])
@@ -92,7 +92,7 @@ with col_left:
     c1, c2, _ = st.columns([1, 1.2, 3])
     with c1:
         if st.button("➕ 과목 추가"):
-            st.session_state.subjects_data.append({"category": "수학", "name": "새 과목", "type": "일반(공통)", "rank": 10, "total": 200, "achievement": "A", "a_ratio": 0.0, "hours": 3})
+            st.session_state.subjects_data.append({"category": "수학", "name": "새 과목", "type": "일반(공통)", "rank": 10, "total": 200, "achievement": "A", "hours": 3})
             st.rerun()
     with c2:
         if st.button("🗑️ 마지막 과목 삭제") and len(st.session_state.subjects_data) > 1:
@@ -103,7 +103,6 @@ with col_left:
     for i, sub in enumerate(st.session_state.subjects_data):
         sub_type = sub.get('type', '일반(공통)')
         sub_achievement = sub.get('achievement', 'A')
-        sub_a_ratio = sub.get('a_ratio', 0.0)
         sub_rank = sub.get('rank', 1)
         sub_total = sub.get('total', 200)
 
@@ -117,31 +116,29 @@ with col_left:
                 name = cc2.text_input("과목명", value=sub['name'], key=f"name_{i}")
                 hours = cc2.number_input("이수시수", min_value=1, max_value=10, value=sub['hours'], key=f"hours_{i}")
             
-            cc3, cc4, cc5, cc6 = st.columns([2, 2, 2, 2])
+            # 💡 2015개정용 'A비율(%)' 입력을 완벽하게 제거하여 UI 최적화
+            cc3, cc4, cc5 = st.columns([3, 3, 3])
             with cc3: rank = cc3.number_input("석차(등)", min_value=1, value=sub_rank, key=f"rank_{i}")
             with cc4: total = cc4.number_input("수강자(명)", min_value=1, value=sub_total, key=f"total_{i}")
             with cc5: ach = cc5.selectbox("성취도", ["A", "B", "C"], index=["A", "B", "C"].index(sub_achievement), key=f"ach_{i}")
-            with cc6: a_rat = cc6.number_input("A비율(%)", min_value=0.0, max_value=100.0, value=sub_a_ratio, key=f"arat_{i}")
             
             pct = (rank / total) * 100 if total > 0 else 100.0
             
+            # --- 고정 등급 및 백분위 매핑 엔진 (2022 개정 표준 적용) ---
             if stype == "일반(공통)":
                 g9 = calculate_9grade(pct)
                 g5 = calculate_5grade_by_rules(rank, total)
             else:
+                # 사용자가 석차를 기입했다면 석차 기반 계산, 아니라면 성취도별 고정 등급 매핑
                 if rank > 1 or total != 200:
                     g9 = calculate_9grade(pct)
                     g5 = calculate_5grade_by_rules(rank, total)
                 else:
-                    if ach == "A":
-                        g5 = 1.0 + (a_rat / 100.0)
-                        g9 = 1.0 + (a_rat / 100.0)
-                    elif ach == "B":
-                        g5 = 3.0; g9 = 4.0
-                    else:
-                        g5 = 5.0; g9 = 9.0
+                    if ach == "A": g5, g9 = 1.0, 1.0
+                    elif ach == "B": g5, g9 = 3.0, 4.0
+                    else: g5, g9 = 5.0, 9.0
 
-            updated_list.append({"category": cat, "name": name, "type": stype, "rank": rank, "total": total, "achievement": ach, "a_ratio": a_rat, "hours": hours, "pct": pct, "grade9": g9, "grade5": g5})
+            updated_list.append({"category": cat, "name": name, "type": stype, "rank": rank, "total": total, "achievement": ach, "hours": hours, "pct": pct, "grade9": g9, "grade5": g5})
             st.write("---")
             
     st.session_state.subjects_data = updated_list
@@ -165,16 +162,15 @@ with col_right:
             
         st.write("---")
         
-        # 💡 [요청 기능 추가] 단일 과목별 상세 백분위 및 산정 등급 모니터링 테이블 생성
         st.markdown("#### 🎯 단일 과목별 성적 정밀 분석")
         analysis_df = pd.DataFrame({
             "과목명": df["name"],
             "유형": df["type"],
             "이수시수": df["hours"].astype(str) + "단위",
             "석차/수강자": df["rank"].astype(str) + " / " + df["total"].astype(str),
-            "상위 백분위": df["pct"].map(lambda x: f"{x:.2f}%" if x > 0 else "- (역산제외)"),
-            "9등급제 결과": df["grade9"].map(lambda x: f"{x:.2f}등급" if isinstance(x, float) else f"{x}등급"),
-            "5등급제 결과": df["grade5"].map(lambda x: f"{x:.2f}등급" if isinstance(x, float) else f"{x}등급")
+            "상위 백분위": df["pct"].map(lambda x: f"{x:.2f}%" if x > 0 else "-"),
+            "9등급제 결과": df["grade9"].map(lambda x: f"{x}등급"),
+            "5등급제 결과": df["grade5"].map(lambda x: f"{x}등급")
         })
         st.dataframe(analysis_df, use_container_width=True)
         
@@ -197,7 +193,7 @@ with col_right:
                     score_5 = (dg_target['grade5'].map(info['points_5']) * dg_target['hours']).sum() / dg_target['hours'].sum()
                 else: score_9, score_5 = 0, 0
             
-            # 2. 경희대학교식 반영 엔진
+            # 2. 경희대학교식 반영 엔진 (일반 80% + 진로상위3개 20%)
             elif univ_name == "경희대":
                 khu_reg = df[df["type"] == "일반(공통)"]
                 if khu_reg.empty: khu_reg = df
