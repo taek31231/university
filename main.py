@@ -108,3 +108,35 @@ with col_left:
             st.write("---")
             
     st.session_state.subjects_data = updated_list
+
+# --- 5. 오른쪽: 계산 대시보드 및 결과 리포트 ---
+with col_right:
+    st.markdown("### 📊 최종 대시보드 결과 리포트")
+    df = pd.DataFrame(st.session_state.subjects_data)
+    
+    if not df.empty:
+        reg_only = df[(df["type"] == "일반(공통)") | (df["rank"] > 1) | (df["total"] != 200)]
+        if reg_only.empty: reg_only = df
+            
+        total_h = reg_only["hours"].sum()
+        avg_g9 = (reg_only["grade9"] * reg_only["hours"]).sum() / total_h if total_h > 0 else 1.0
+        avg_g5 = (reg_only["grade5"] * reg_only["hours"]).sum() / total_h if total_h > 0 else 1.0
+        
+        m_c1, m_c2 = st.columns(2)
+        with m_c1: st.metric(label="📊 주요 석차산출 과목 9등급제 평균", value=f"{avg_g9:.2f} 등급")
+        with m_c2: st.metric(label="✨ 주요 석차산출 과목 5등급제 평균", value=f"{avg_g5:.2f} 등급")
+        
+        st.write("---")
+        
+# 단일 과목별 성적 정밀 분석 테이블
+        st.markdown("#### 🎯 단일 과목별 성적 정밀 분석")
+        analysis_df = pd.DataFrame({
+            "과목명": df["name"],
+            "유형": df["type"],
+            "이수시수": df["hours"].astype(str) + "단위",
+            "석차/수강자": df["rank"].astype(str) + " / " + df["total"].astype(str),
+            "상위 백분위": df["pct"].map(lambda x: f"{x:.2f}%" if x > 0 else "-"),
+            "9등급제 결과": df["grade9"].map(lambda x: f"{x}등급"),
+            "5등급제 결과": df["grade5"].map(lambda x: f"{x}등급")
+        })
+        st.dataframe(analysis_df, use_container_width=True)
