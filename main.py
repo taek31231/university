@@ -30,24 +30,9 @@ def calculate_5grade_by_rules(rank, total_students):
         if rank <= cut_rank: return grade_idx + 1
     return 5
 
-@st.cache_data
-def load_university_database():
-    csv_file = "univ_data.csv"
-    if not os.path.exists(csv_file):
-        df_built = 체계적_대학데이터_생성()
-        df_built.to_csv(csv_file, index=False, encoding="utf-8-sig")
-        return df_built
-    else:
-        try:
-            return pd.read_csv(csv_file, encoding="utf-8-sig")
-        except Exception as e:
-            df_built = 체계적_대학데이터_생성()
-            df_built.to_csv(csv_file, index=False, encoding="utf-8-sig")
-            return df_built
-
 # --- 2. 메인 타이틀 ---
 st.title("🎓 2028 개편 내신 종합 분석 계산기")
-st.markdown("### 2022 개정 교육과정 최적화 및 수시 배치 라인")
+st.markdown("### 2022 개정 교육과정 및 수시 최적화")
 st.write("---")
 
 # --- 3. 세션 상태 초기화 ---
