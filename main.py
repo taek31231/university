@@ -111,10 +111,10 @@ with col_right:
         
         st.write("---")
         
-        st.markdown("#### 🔍 실시간 수시 배치 라인 (입결 연동)")
+        st.markdown("#### 🔍 실시간 수시 배치 라인 (9등급제 마진 연동)")
         track = st.radio("본인의 계열을 선택하세요:", ["이과(자연계열)", "문과(인문계열)"], horizontal=True)
         
-        # 대학 전형별 대략적인 합격선 데이터베이스 정의
+        # 2025학년도 9등급제 기반 대학별 평균 입결 컷 데이터베이스
         raw_univ_data = [
             {"univ": "서울대학교 (종합)", "track": "이과(자연계열)", "dept": "사범대 과학교육계열 / 간호학과", "cut": 1.25, "desc": "일반고 기준 극상위권 라인. 면접 및 최저학력기준 변수 존재."},
             {"univ": "연세대학교 (종합)", "track": "이과(자연계열)", "dept": "천문우주학과 / 대기과학과", "cut": 1.30, "desc": "활동우수형 전형. 서류 및 제시문 면접 역량이 핵심."},
@@ -143,32 +143,39 @@ with col_right:
             {"univ": "홍익대학교 (교과)", "track": "문과(인문계열)", "dept": "경영학부 / 영어영문학과 / 법학부", "cut": 2.00, "desc": "높은 수능 최저(3합8) 학력 기준 덕분에 이변이 적은 안정 카드."}
         ]
 
-        # 실시간 avg_g9 기반 구간 필터링 로직
+        # 실시간 계열별 필터링
         filtered_univs = [u for u in raw_univ_data if u["track"] == track]
         categories = {"상향": [], "소신": [], "안정": [], "하향": []}
         
+        # 💡 [진짜 등급마진 매핑 알고리즘]
+        # 사용자 기준 등급 차이 공식 = (대학 합격 컷) - (내 실시간 내신)
+        # 내 성적이 좋아질수록(숫자가 작아질수록) 대학 컷이 내 점수보다 낮아져 하향/안정 구간으로 이동합니다.
         for u in filtered_univs:
-            diff = avg_g9 - u["cut"]
+            diff = u["cut"] - avg_g9  
             
-            if -0.5 <= diff < -0.3:
+            if diff <= -0.4:
                 categories["상향"].append(u)
-            elif -0.3 <= diff < -0.1:
+            elif -0.4 < diff <= -0.2:
                 categories["소신"].append(u)
-            elif -0.1 <= diff <= 0.2:
+            elif -0.2 < diff <= 0.2:
                 categories["안정"].append(u)
             elif diff > 0.2:
                 categories["하향"].append(u)
         
-        # 탭 레이아웃 생성
-        tab1, tab2, tab3, tab4 = st.tabs(["🔴 상향", "🟡 소신", "🟢 안정", "🔵 하향"])
+        # 탭 레이아웃 생성 및 마진 기준 명시
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "🔴 상향 (내 점수 +0.4 이상)", 
+            "🟡 소신 (내 점수 +0.2 ~ +0.4)", 
+            "🟢 안정 (내 점수 -0.2 ~ +0.2)", 
+            "🔵 하향 (내 점수 -0.2 이하)"
+        ])
         
         def display_dynamic_tab(target_tab, key_string):
             with target_tab:
                 if not categories[key_string]:
-                    st.write("현재 내신 점수 구간에 해당하는 대학이 없습니다. 과목 성적을 조정해 보세요.")
+                    st.info("현재 계산된 내신 점수 구간에 해당하는 대학이 없습니다. 왼쪽에서 성적을 조정해 보세요.")
                 else:
                     for item in categories[key_string]:
-                        # 💡 요구사항 반영: 타이틀 영역 및 학과 설명 영역에 평균 합격 컷을 명시화
                         st.markdown(f"**🏛️ {item['univ']}**")
                         st.markdown(f"📌 **추천 학과 및 입결 평균:** `{item['dept']} [평균 {item['cut']}등급]`")
                         st.write(f"📝 {item['desc']}")
