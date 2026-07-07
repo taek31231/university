@@ -30,24 +30,24 @@ def calculate_5grade_by_rules(rank, total_students):
         if rank <= cut_rank: return grade_idx + 1
     return 5
 
-# 💡 [자동 빌드 엔진] 수도권/지거국/의대/교대 데이터셋 생성기
+# 수도권/지거국/의대/교대 데이터셋 생성기
 def 체계적_대학데이터_생성():
     data = []
     
-    # 1. 의과대학 (전국 의대/치대/한의대/약대 기반 시뮬레이션 라인)
+    # 1. 의과대학
     medical_univs = ["서울대", "연세대", "고려대", "가톨릭대", "성균관대", "울산대", "한양대", "경희대", "중앙대", "부산대", "경북대", "전남대", "충남대"]
     for univ in medical_univs:
         data.append({"univ": f"{univ} (의예과/종합·교과)", "track": "이과(자연계열)", "dept": "의예과 / 치의예과", "cut": 1.05 if univ in ["서울대", "연세대", "가톨릭대"] else 1.15, "desc": "전국 최상위 고교 극초상위권 각축지. 수능 최저 완화 여부가 변수."})
         data.append({"univ": f"{univ} (약학과/종합·교과)", "track": "이과(자연계열)", "dept": "약학과 / 수의예과", "cut": 1.25 if univ in ["서울대", "연세대"] else 1.38, "desc": "상위권 자연계열 학생들의 견고한 투표 카드. 전문직 선호 현상 뚜렷."})
 
-    # 2. 전국 주요 교육대학교 및 초등교육과
+    # 2. 전국 주요 교육대학교
     edu_univs = ["서울교대", "경인교대", "공주교대", "대구교대", "부산교대", "광주교대", "춘천교대", "이화여대(초등)", "제주대(초등)"]
     for univ in edu_univs:
         cut_val = 1.45 if "서울" in univ or "경인" in univ or "이화" in univ else 1.75
         data.append({"univ": f"{univ} (교과/종합)", "track": "문과(인문계열)", "dept": "초등교육과", "cut": cut_val, "desc": "면접 비중이 높고 교직 인적성 평가가 당락의 핵심 변수로 작용."})
         data.append({"univ": f"{univ} (교과/종합)", "track": "이과(자연계열)", "dept": "초등교육과(자연선택)", "cut": cut_val + 0.05, "desc": "이과 가산점 매칭 여부 확인 필요. 교직 이념 정성평가 동시 반영."})
 
-    # 3. 수도권 상위권 대학 (서연고서성한이중경외시건동홍숙 등 모든 주요 학과군 분리)
+    # 3. 수도권 상위권 대학
     seoul_major = {
         "서울대학교": {"이과": [("컴퓨터공학·전기전자군", 1.20), ("화공·생명·기계공학군", 1.28), ("자연과학·지구환경군", 1.38)], "문과": [("경영·경제·정외학부군", 1.15), ("인문학·사회과학·어문학군", 1.35)]},
         "연세대학교": {"이과": [("화공생명·반도체공학부", 1.28), ("신소재·기계·IT융합군", 1.40), ("건축·천문·대기과학군", 1.52)], "문과": [("경영·경제·언론홍보학군", 1.32), ("행정·사회학·문헌정보군", 1.48)]},
@@ -65,30 +65,28 @@ def 체계적_대학데이터_생성():
 
     for univ, tracks in seoul_major.items():
         for dept_name, cut_v in tracks["이과"]:
-            data.append({"univ": f"{univ} (교과/종합)", "track": "이과(자연계열)", "dept": dept_name, "cut": cut_v, "desc": f"{univ} 기술/과학 분야 핵심 학과군. 학업역량 정량/정성 집중 반영."})
+            data.append({"univ": f"{univ} (교과/종합)", "track": "이과(자연계열)", "dept": dept_name, "cut": cut_v, "desc": f"{univ} 기술/과학 분야 핵심 학과군."})
         for dept_name, cut_v in tracks["문과"]:
-            data.append({"univ": f"{univ} (교과/종합)", "track": "문과(인문계열)", "dept": dept_name, "cut": cut_v, "desc": f"{univ} 경영/인문 핵심 학과군. 수능 최저 만족 시 합격 안정성 대폭 상승."})
+            data.append({"univ": f"{univ} (교과/종합)", "track": "문과(인문계열)", "dept": dept_name, "cut": cut_v, "desc": f"{univ} 경영/인문 핵심 학과군."})
 
-    # 4. 지방 거점 국립대학교 (부산대, 경북대, 충남대, 전남대, 충북대, 전북대, 강원대, 제주대 등)
+    # 4. 지방 거점 국립대학교
     jigeorug = ["부산대학교", "경북대학교", "충남대학교", "전남대학교", "충북대학교", "전북대학교", "강원대학교", "제주대학교"]
     for univ in jigeorug:
-        # 거점 국립대 입결 밴드 스펙트럼 생성
         base_cut = 1.95 if univ in ["부산대학교", "경북대학교"] else (2.25 if univ in ["충남대학교", "전남대학교"] else 2.65)
         
-        data.append({"univ": f"{univ} (지방거점국립)", "track": "이과(자연계열)", "dept": "기계공학부 / 전기전자공학부 / 반도체", "cut": base_cut, "desc": "지방 거점 국립대 간판 공학부. 지역인재 할당제 및 공기업 취업 메리트 극대화 구간."})
-        data.append({"univ": f"{univ} (지방거점국립)", "track": "이과(자연계열)", "dept": "화학공학과 / 컴퓨터공학 / 신소재", "cut": base_cut + 0.25, "desc": "적정 취업 연계 학과군. 정량 교과 반영 비율이 높음."})
-        data.append({"univ": f"{univ} (지방거점국립)", "track": "이과(자연계열)", "dept": "생명과학 / 수학 / 지구물리 / 간호", "cut": base_cut + 0.55, "desc": "자연과학 및 보건계열 하위 학과군. 내신 방어용 안정 지원 카드로 유효."})
+        data.append({"univ": f"{univ}", "track": "이과(자연계열)", "dept": "기계공학부 / 전기전자공학부 / 반도체", "cut": base_cut, "desc": "지방 거점 국립대 간판 공학부."})
+        data.append({"univ": f"{univ}", "track": "이과(자연계열)", "dept": "화학공학과 / 컴퓨터공학 / 신소재", "cut": base_cut + 0.25, "desc": "적정 취업 연계 학과군."})
+        data.append({"univ": f"{univ}", "track": "이과(자연계열)", "dept": "생명과학 / 수학 / 지구물리 / 간호", "cut": base_cut + 0.55, "desc": "자연과학 및 보건계열 하위 학과군."})
         
-        data.append({"univ": f"{univ} (지방거점국립)", "track": "문과(인문계열)", "dept": "경영학부 / 경제학과 / 행정학과", "cut": base_cut + 0.10, "desc": "문과 최선호 전공군. 수능 최저학력기준 유무에 따른 컷 유동성 존재."})
-        data.append({"univ": f"{univ} (지방거점국립)", "track": "문과(인문계열)", "dept": "정치외교 / 미디어커뮤니케이션 / 심리", "cut": base_cut + 0.35, "desc": "사회과학계열 중위 학과군. 비교과 세특 방향성 정렬 필요."})
-        data.append({"univ": f"{univ} (지방거점국립)", "track": "문과(인문계열)", "dept": "국어국문 / 사학과 / 철학 / 외국어문학", "cut": base_cut + 0.65, "desc": "인문학/어문학 학과군. 꼬리가 길게 늘어나는 특성이 있어 정량 내신 최하단 합격선 보험 구간."})
+        data.append({"univ": f"{univ}", "track": "문과(인문계열)", "dept": "경영학부 / 경제학과 / 행정학과", "cut": base_cut + 0.10, "desc": "문과 최선호 전공군."})
+        data.append({"univ": f"{univ}", "track": "문과(인문계열)", "dept": "정치외교 / 미디어커뮤니케이션 / 심리", "cut": base_cut + 0.35, "desc": "사회과학계열 중위 학과군."})
+        data.append({"univ": f"{univ}", "track": "문과(인문계열)", "dept": "국어국문 / 사학과 / 철학 / 외국어문학", "cut": base_cut + 0.65, "desc": "인문학/어문학 학과군."})
 
     return pd.DataFrame(data)
 
 @st.cache_data
 def load_university_database():
     csv_file = "univ_data.csv"
-    # 파일이 없거나 새로 고침 필요 시 자동 생성 엔진 가동
     if not os.path.exists(csv_file):
         df_built = 체계적_대학데이터_생성()
         df_built.to_csv(csv_file, index=False, encoding="utf-8-sig")
@@ -97,17 +95,16 @@ def load_university_database():
         try:
             return pd.read_csv(csv_file, encoding="utf-8-sig")
         except Exception as e:
-            st.error(f"CSV 로드 실패, 데이터 자동 재생성: {e}")
             df_built = 체계적_대학데이터_생성()
             df_built.to_csv(csv_file, index=False, encoding="utf-8-sig")
             return df_built
 
 # --- 2. 메인 타이틀 ---
 st.title("🎓 2028 개편 내신 종합 분석 계산기")
-st.markdown("### 2022 개정 교육과정 최적화 및 수시 배치 라인 (수도권·지거국·의대·교대 전 학과 DB)")
+st.markdown("### 2022 개정 교육과정 최적화 및 수시 배치 라인")
 st.write("---")
 
-# --- 3. 세션 상태 초기화 (샘플 데이터 포함) ---
+# --- 3. 세션 상태 초기화 ---
 if 'subjects_data' not in st.session_state:
     st.session_state.subjects_data = [
         {"category": "수학", "name": "대수", "type": "일반(공통)", "rank": 5, "total": 200, "achievement": "A", "hours": 4},
@@ -116,7 +113,6 @@ if 'subjects_data' not in st.session_state:
         {"category": "과학", "name": "물리학Ⅱ", "type": "진로선택", "rank": 1, "total": 200, "achievement": "B", "hours": 3}
     ]
 
-# 화면 레이아웃 분할
 col_left, col_right = st.columns([5, 4])
 
 # --- 4. 왼쪽: 성적 입력 창 ---
@@ -184,54 +180,53 @@ with col_right:
         
         st.write("---")
         
-        st.markdown("#### 🔍 실시간 수시 배치 라인 (9등급제 마진 연동)")
+        st.markdown("#### 🔍 실시간 수시 배치 라인 (학생 구간별 동적 마진형)")
         track = st.radio("본인의 계열을 선택하세요:", ["이과(자연계열)", "문과(인문계열)"], horizontal=True)
         
-        # 💡 자동 구축된 데이터베이스 로드 (의대, 교대, 수도권 및 지거국 전 학과군 매핑 완료)
         db_df = load_university_database()
-        
         filtered_df = db_df[db_df["track"] == track]
         categories = {"상향": [], "소신": [], "안정": [], "하향": []}
         
-        # 등급 마진 매핑 연산
+        # 💡 [핵심 알고리즘 수정] 학생 등급 구간별 동적 마진 함수 정의
+        # 내 성적에 맞는 유의미한 상하 한계선을 설정하여 우주상향/지하하향 필터링
+        if avg_g9 <= 1.5:
+            # 1등급대 초중반 극상위권 설정
+            up_bound, target_up, target_down, down_bound = -0.2, -0.1, 0.0, 0.1
+        elif 1.5 < avg_g9 <= 3.0:
+            # 1등급 후반 ~ 2등급대 설정
+            up_bound, target_up, target_down, down_bound = -0.4, -0.2, 0.0, 0.2
+        else:
+            # 3등급대 이하 중위권 설정 (터무니없는 의대/서울대 상향 노출 원천 차단)
+            up_bound, target_up, target_down, down_bound = -0.6, -0.3, 0.0, 0.3
+
         for _, row in filtered_df.iterrows():
-            diff = row["cut"] - avg_g9
+            diff = row["cut"] - avg_g9 # 대학 컷 - 내 등급 (음수면 대학 컷이 더 높음 = 상향/소신)
             
-            item = {
-                "univ": row["univ"],
-                "dept": row["dept"],
-                "cut": row["cut"],
-                "desc": row["desc"]
-            }
+            item = {"univ": row["univ"], "dept": row["dept"], "cut": row["cut"], "desc": row["desc"]}
             
-            if diff <= -0.4:
+            # 구간별 마진 대입
+            if up_bound <= diff < target_up:
                 categories["상향"].append(item)
-            elif -0.4 < diff <= -0.2:
+            elif target_up <= diff < target_down:
                 categories["소신"].append(item)
-            elif -0.2 < diff <= 0.2:
+            elif target_down <= diff <= down_bound:
                 categories["안정"].append(item)
-            elif diff > 0.2:
+            elif down_bound < diff <= (down_bound + (0.3 if avg_g9 <= 3.0 else 0.4)):
+                # 하향도 무한정 낮은 대학이 나오지 않도록 적정 캡(Cap)을 씌움
                 categories["하향"].append(item)
         
-        # 탭 배치 인터페이스 설계
-        tab1, tab2, tab3, tab4 = st.tabs([
-            f"🔴 상향 (타깃: {avg_g9-0.4:.2f} 이상)", 
-            f"🟡 소신 (타깃: {avg_g9-0.3:.2f} ~ {avg_g9-0.2:.2f})", 
-            f"🟢 안정 (타깃: {avg_g9-0.2:.2f} ~ {avg_g9+0.2:.2f})", 
-            f"🔵 하향 (타깃: {avg_g9+0.2:.2f} 이하)"
-        ])
+        # 탭 배치 안내
+        tab1, tab2, tab3, tab4 = st.tabs(["🔴 도전 상향", "🟡 지원 소신", "🟢 적정 안정", "🔵 보험 하향"])
         
         def display_dynamic_tab(target_tab, key_string):
             with target_tab:
                 if not categories[key_string]:
-                    st.info("해당 등급 마진 구간에 일치하는 모집단위가 대량 DB 내에 존재하지 않습니다. 왼쪽 성적을 다변화해 보세요.")
+                    st.info("현재 내신 점수 대에 매칭되는 유의미한 대학·학과군이 이 탭에는 없습니다.")
                 else:
-                    st.caption(f"💡 현재 점수 기준으로 총 {len(categories[key_string])}개의 주요 대학 학과 라인이 매칭되었습니다.")
-                    st.write("")
+                    st.caption(f"💡 지원 타깃 범위 내 총 {len(categories[key_string])}개 데이터가 정제되었습니다.")
                     for item in categories[key_string]:
                         st.markdown(f"**🏛️ {item['univ']}**")
-                        st.markdown(f"📌 **대상 학과군 및 입결선:** `{item['dept']} [평균 {item['cut']:.2f}등급]`")
-                        st.write(f"📝 {item['desc']}")
+                        st.markdown(f"📌 **학과군:** `{item['dept']} [평균 {item['cut']:.2f}등급]`")
                         st.write("")
 
         display_dynamic_tab(tab1, "상향")
