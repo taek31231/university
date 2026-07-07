@@ -121,7 +121,7 @@ with col_left:
     # 입력 UI 리스트업
     updated_list = []
     for i, sub in enumerate(st.session_state.subjects_data):
-        with st.get_container():
+        with st.container():
             cc1, cc2, cc3, cc4, cc5 = st.columns([2, 3, 2, 2, 2])
             with cc1:
                 cat = cc1.selectbox("교과분류", ["국어", "수학", "영어", "사회", "과학", "기타/예체능"], 
