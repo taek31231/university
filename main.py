@@ -2,63 +2,109 @@ import streamlit as st
 import pandas as pd
 
 st.set_page_config(
-    page_title="2028 내신 5등급제 주요대 환산기",
+    page_title="내신 성적 산출 및 주요대 환산기 (9등급/5등급 겸용)",
     page_icon="🎓",
     layout="wide"
 )
 
-# 대학별 등급 환산 점수 데이터베이스
-UNIV_FORMULAS = {
-    "연세대학교": {"group": "수도권 상위대학", "max_score": 100, "grade_points": {1: 100, 2: 95, 3: 87.5, 4: 75, 5: 60}, "desc": "등급별 점수 반영 (이수단위 가중평균)"},
-    "고려대학교": {"group": "수도권 상위대학", "max_score": 100, "grade_points": {1: 100, 2: 98, 3: 94, 4: 86, 5: 70}, "desc": "교과 평균 점수 산출 방식 (전 교과 균등 반영)"},
-    "서강대학교": {"group": "수도권 상위대학", "max_score": 100, "grade_points": {1: 100, 2: 99, 3: 97, 4: 90, 5: 70}, "desc": "국·수·영·사·과 전 과목 이수단위 가중평균"},
-    "성균관대학교": {"group": "수도권 상위대학", "max_score": 1000, "grade_points": {1: 1000, 2: 990, 3: 970, 4: 900, 5: 700}, "desc": "정량평가 1000점 만점 기준 산출"},
-    "한양대학교": {"group": "수도권 상위대학", "max_score": 100, "grade_points": {1: 100, 2: 98, 3: 96, 4: 85, 5: 60}, "desc": "국·수·영·사·과 전 과목 반영"},
-    "중앙대학교": {"group": "수도권 상위대학", "max_score": 100, "grade_points": {1: 100, 2: 98.5, 3: 96.5, 4: 88, 5: 70}, "desc": "계열 구분 없이 국수영사과 이수단위 반영"},
-    "경희대학교": {"group": "수도권 상위대학", "max_score": 500, "grade_points": {1: 500, 2: 490, 3: 475, 4: 430, 5: 300}, "desc": "교과 성적 500점 만점 정량 산출"},
-    "아주대학교": {"group": "수도권 주요대학", "max_score": 100, "grade_points": {1: 100, 2: 98, 3: 95, 4: 88, 5: 70}, "desc": "전 교과 이수단위 가중평균 반영"},
-    "부산대학교": {"group": "지방거점국립대", "max_score": 100, "grade_points": {1: 100, 2: 98, 3: 96, 4: 92, 5: 80}, "desc": "지거국 특성 반영 등급 간 격차 조정"},
-    "서울교대": {"group": "교대", "max_score": 100, "grade_points": {1: 100, 2: 98, 3: 95, 4: 85, 5: 50}, "desc": "전 과목(예체능 포함) 균등 가중치 반영"}
-}
+# 1. 9등급제 기준 컷
+GRADE_9_CUTS = [
+    ("1등급", 4.0), ("2등급", 11.0), ("3등급", 23.0), ("4등급", 40.0),
+    ("5등급", 60.0), ("6등급", 77.0), ("7등급", 89.0), ("8등급", 96.0), ("9등급", 100.0)
+]
 
-# 💡 교육부 공식 이미지 기준: 수강자수에 따른 등급 컷오프 등수 계산 함수
+# 2. 5등급제 누적 비율 (반올림용)
+GRADE_5_RATIOS = [0.10, 0.34, 0.66, 0.90, 1.00]
+
+# 9등급제 계산 함수
+def calculate_9grade(pct):
+    if pct <= 0: return 1
+    for grade_str, cut in GRADE_9_CUTS:
+        if pct <= cut:
+            return int(grade_str[0])
+    return 9
+
+# 5등급제 계산 함수 (반올림 규칙 적용)
 def calculate_5grade_by_rules(rank, total_students):
-    if total_students <= 0:
-        return 5
-        
-    # 각 등급별 기준 누적 비율
-    cut_ratios = [0.10, 0.34, 0.66, 0.90, 1.00]
-    
-    # 누적 인원 계산 후 반올림 (파이썬 round는 오사오입이므로 0.5 더하고 내림 처리하여 정확한 반올림 구현)
-    cut_ranks = [int(total_students * ratio + 0.5) for ratio in cut_ratios]
-    
-    # 석차가 어느 누적 인원 컷 안에 들어오는지 판정
+    if total_students <= 0: return 5
+    cut_ranks = [int(total_students * ratio + 0.5) for ratio in GRADE_5_RATIOS]
     for grade_idx, cut_rank in enumerate(cut_ranks):
         if rank <= cut_rank:
             return grade_idx + 1
-            
     return 5
 
-st.title("🎓 2028 내신 5등급제 주요 대학별 실전 환산기")
-st.markdown("### 교육부 공식 등급 산정 방식(누적인원 반올림 규칙)을 적용한 정밀 산출기입니다.")
+# 3. 38개 모든 주요 대학 등급별 환산 점수 데이터베이스 정의
+# (기본 스케일: 1등급=100점 만점 기준 구조, 대학별 점수 격차 시뮬레이션)
+UNIV_DATABASE = {
+    # 수도권 상위대학
+    "서울대": {"group": "수도권 상위대학", "grade_points_9": {1:100, 2:98, 3:95, 4:90, 5:80, 6:70, 7:55, 8:40, 9:20}, "grade_points_5": {1:100, 2:97, 3:92, 4:80, 5:50}},
+    "연세대": {"group": "수도권 상위대학", "grade_points_9": {1:100, 2:95, 3:87.5, 4:75, 5:60, 6:40, 7:25, 8:10, 9:0}, "grade_points_5": {1:100, 2:95, 3:85, 4:70, 5:50}},
+    "고려대": {"group": "수도권 상위대학", "grade_points_9": {1:100, 2:98, 3:94, 4:86, 5:70, 6:50, 7:30, 8:10, 9:0}, "grade_points_5": {1:100, 2:98, 3:93, 4:82, 5:60}},
+    "서강대": {"group": "수도권 상위대학", "grade_points_9": {1:100, 2:99, 3:97, 4:90, 5:80, 6:70, 7:50, 8:30, 9:0}, "grade_points_5": {1:100, 2:99, 3:96, 4:85, 5:65}},
+    "성균관대": {"group": "수도권 상위대학", "grade_points_9": {1:100, 2:98, 3:95, 4:85, 5:70, 6:50, 7:30, 8:10, 9:0}, "grade_points_5": {1:100, 2:98, 3:94, 4:80, 5:60}},
+    "한양대": {"group": "수도권 상위대학", "grade_points_9": {1:100, 2:97, 3:94, 4:88, 5:75, 6:55, 7:35, 8:15, 9:0}, "grade_points_5": {1:100, 2:97, 3:93, 4:84, 5:55}},
+    "이화여대": {"group": "수도권 상위대학", "grade_points_9": {1:100, 2:98, 3:96, 4:90, 5:80, 6:60, 7:40, 8:20, 9:0}, "grade_points_5": {1:100, 2:98, 3:95, 4:86, 5:60}},
+    "중앙대": {"group": "수도권 상위대학", "grade_points_9": {1:100, 2:98.5, 3:96.5, 4:92, 5:85, 6:70, 7:50, 8:30, 9:0}, "grade_points_5": {1:100, 2:98.5, 3:95.5, 4:88, 5:65}},
+    "경희대": {"group": "수도권 상위대학", "grade_points_9": {1:100, 2:98, 3:95, 4:88, 5:75, 6:50, 7:30, 8:10, 9:0}, "grade_points_5": {1:100, 2:98, 3:94, 4:82, 5:55}},
+    "한국외대": {"group": "수도권 상위대학", "grade_points_9": {1:100, 2:97.5, 3:94, 4:88, 5:80, 6:65, 7:45, 8:20, 9:0}, "grade_points_5": {1:100, 2:97.5, 3:93, 4:85, 5:60}},
+    "서울시립대": {"group": "수도권 상위대학", "grade_points_9": {1:100, 2:98, 3:96, 4:92, 5:84, 6:70, 7:50, 8:30, 9:0}, "grade_points_5": {1:100, 2:98, 3:95, 4:88, 5:65}},
+    "건국대": {"group": "수도권 상위대학", "grade_points_9": {1:100, 2:98.5, 3:96.5, 4:93, 5:85, 6:70, 7:40, 8:10, 9:0}, "grade_points_5": {1:100, 2:98.5, 3:95, 4:87, 5:60}},
+
+    # 수도권 주요대학
+    "동국대": {"group": "수도권 주요대학", "grade_points_9": {1:100, 2:99, 3:97, 4:94, 5:90, 6:80, 7:60, 8:40, 9:0}, "grade_points_5": {1:100, 2:99, 3:96, 4:90, 5:70}},
+    "홍익대": {"group": "수도권 주요대학", "grade_points_9": {1:100, 2:97, 3:93, 4:87, 5:79, 6:69, 7:57, 8:40, 9:0}, "grade_points_5": {1:100, 2:97, 3:92, 4:83, 5:60}},
+    "숙명여대": {"group": "수도권 주요대학", "grade_points_9": {1:100, 2:98, 3:95, 4:90, 5:82, 6:70, 7:50, 8:30, 9:0}, "grade_points_5": {1:100, 2:98, 3:94, 4:85, 5:60}},
+    "국민대": {"group": "수도권 주요대학", "grade_points_9": {1:100, 2:98.5, 3:97, 4:94, 5:90, 6:83, 7:70, 8:50, 9:0}, "grade_points_5": {1:100, 2:98.5, 3:96, 4:88, 5:65}},
+    "숭실대": {"group": "수도권 주요대학", "grade_points_9": {1:100, 2:97, 3:94, 4:89, 5:81, 6:70, 7:50, 8:30, 9:0}, "grade_points_5": {1:100, 2:97, 3:92, 4:83, 5:60}},
+    "세종대": {"group": "수도권 주요대학", "grade_points_9": {1:100, 2:98, 3:95, 4:90, 5:82, 6:70, 7:50, 8:30, 9:0}, "grade_points_5": {1:100, 2:98, 3:94, 4:85, 5:60}},
+    "단국대": {"group": "수도권 주요대학", "grade_points_9": {1:100, 2:98, 3:95, 4:90, 5:80, 6:65, 7:45, 8:20, 9:0}, "grade_points_5": {1:100, 2:98, 3:93, 4:84, 5:55}},
+    "아주대": {"group": "수도권 주요대학", "grade_points_9": {1:100, 2:98, 3:95, 4:89, 5:79, 6:60, 7:40, 8:10, 9:0}, "grade_points_5": {1:100, 2:98, 3:93, 4:83, 5:55}},
+    "인하대": {"group": "수도권 주요대학", "grade_points_9": {1:100, 2:97, 3:94, 4:88, 5:77, 6:55, 7:35, 8:10, 9:0}, "grade_points_5": {1:100, 2:97, 3:92, 4:81, 5:50}},
+
+    # 지방거점국립대
+    "경북대": {"group": "지방거점국립대", "grade_points_9": {1:100, 2:98, 3:96, 4:93, 5:89, 6:82, 7:70, 8:50, 9:20}, "grade_points_5": {1:100, 2:98, 3:95, 4:89, 5:70}},
+    "부산대": {"group": "지방거점국립대", "grade_points_9": {1:100, 2:98, 3:96, 4:93, 5:89, 6:82, 7:70, 8:50, 9:20}, "grade_points_5": {1:100, 2:98, 3:95, 4:89, 5:70}},
+    "충남대": {"group": "지방거점국립대", "grade_points_9": {1:100, 2:98, 3:96, 4:93, 5:89, 6:82, 7:70, 8:50, 9:20}, "grade_points_5": {1:100, 2:98, 3:95, 4:89, 5:70}},
+    "충북대": {"group": "지방거점국립대", "grade_points_9": {1:100, 2:98, 3:95, 4:91, 5:86, 6:78, 7:65, 8:45, 9:15}, "grade_points_5": {1:100, 2:98, 3:94, 4:87, 5:65}},
+    "강원대": {"group": "지방거점국립대", "grade_points_9": {1:100, 2:98, 3:95, 4:91, 5:86, 6:78, 7:65, 8:45, 9:15}, "grade_points_5": {1:100, 2:98, 3:94, 4:87, 5:65}},
+    "전북대": {"group": "지방거점국립대", "grade_points_9": {1:100, 2:98, 3:95, 4:91, 5:86, 6:78, 7:65, 8:45, 9:15}, "grade_points_5": {1:100, 2:98, 3:94, 4:87, 5:65}},
+    "전남대": {"group": "지방거점국립대", "grade_points_9": {1:100, 2:98, 3:95, 4:91, 5:86, 6:78, 7:65, 8:45, 9:15}, "grade_points_5": {1:100, 2:98, 3:94, 4:87, 5:65}},
+
+    # 교대
+    "한국교원대": {"group": "교대", "grade_points_9": {1:100, 2:97, 3:93, 4:85, 5:75, 6:60, 7:40, 8:20, 9:0}, "grade_points_5": {1:100, 2:96, 3:90, 4:78, 5:50}},
+    "서울교대": {"group": "교대", "grade_points_9": {1:100, 2:97, 3:93, 4:85, 5:75, 6:60, 7:40, 8:20, 9:0}, "grade_points_5": {1:100, 2:96, 3:90, 4:78, 5:50}},
+    "경인교대": {"group": "교대", "grade_points_9": {1:100, 2:97, 3:93, 4:85, 5:75, 6:60, 7:40, 8:20, 9:0}, "grade_points_5": {1:100, 2:96, 3:90, 4:78, 5:50}},
+    "춘천교대": {"group": "교대", "grade_points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "grade_points_5": {1:100, 2:95, 3:88, 4:75, 5:45}},
+    "청주교대": {"group": "교대", "grade_points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "grade_points_5": {1:100, 2:95, 3:88, 4:75, 5:45}},
+    "공주교대": {"group": "교대", "grade_points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "grade_points_5": {1:100, 2:95, 3:88, 4:75, 5:45}},
+    "전주교대": {"group": "교대", "grade_points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "grade_points_5": {1:100, 2:95, 3:88, 4:75, 5:45}},
+    "광주교대": {"group": "교대", "grade_points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "grade_points_5": {1:100, 2:95, 3:88, 4:75, 5:45}},
+    "대구교대": {"group": "교대", "grade_points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "grade_points_5": {1:100, 2:95, 3:88, 4:75, 5:45}},
+    "부산교대": {"group": "교대", "grade_points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "grade_points_5": {1:100, 2:95, 3:88, 4:75, 5:45}}
+}
+
+st.title("🎓 내신 성적 산출 및 주요 대학별 환산 시뮬레이터")
+st.markdown("### 9등급제 기준 수시 예측과 개편 5등급제 성적 분석을 동시에 수행합니다.")
 st.write("---")
 
+# 성적 입력을 세션 상태로 관리
 if 'subjects_data' not in st.session_state:
     st.session_state.subjects_data = [
-        {"category": "수학", "name": "대수", "rank": 18, "total": 178, "hours": 4},
-        {"category": "수학", "name": "기하", "rank": 61, "total": 178, "hours": 3},
-        {"category": "국어", "name": "독서와 작문", "rank": 62, "total": 178, "hours": 4},
+        {"category": "수학", "name": "대수", "rank": 5, "total": 200, "hours": 4},
+        {"category": "수학", "name": "기하", "rank": 23, "total": 200, "hours": 3},
+        {"category": "국어", "name": "독서와 작문", "rank": 9, "total": 200, "hours": 4},
+        {"category": "영어", "name": "영어 회화", "rank": 15, "total": 200, "hours": 4},
     ]
 
 col_left, col_right = st.columns([5, 4])
 
 with col_left:
-    st.markdown("### 📝 과목별 석차 및 시수 입력")
+    st.markdown("### 📝 과목별 성적 기록 칸")
     
-    c_btn1, c_btn2, _ = st.columns([1, 1, 3])
+    c_btn1, c_btn2, _ = st.columns([1, 1.2, 3])
     with c_btn1:
         if st.button("➕ 과목 추가"):
-            st.session_state.subjects_data.append({"category": "수학", "name": "새 과목", "rank": 10, "total": 100, "hours": 3})
+            st.session_state.subjects_data.append({"category": "수학", "name": "새 과목", "rank": 10, "total": 200, "hours": 3})
             st.rerun()
     with c_btn2:
         if st.button("🗑️ 마지막 과목 삭제") and len(st.session_state.subjects_data) > 1:
@@ -67,7 +113,7 @@ with col_left:
 
     updated_list = []
     for i, sub in enumerate(st.session_state.subjects_data):
-        with st.container():  # AttributeError 원인이었던 get_container를 container로 전면 수정
+        with st.container():
             cc1, cc2, cc3, cc4, cc5 = st.columns([2, 3, 2, 2, 2])
             with cc1:
                 cat = cc1.selectbox("교과분류", ["국어", "수학", "영어", "사회", "과학", "기타/예체능"], 
@@ -81,60 +127,83 @@ with col_left:
             with cc5:
                 hours = cc5.number_input("시수", min_value=1, value=sub['hours'], key=f"hours_{i}")
             
-            # 새 공식 적용 계산
-            g5 = calculate_5grade_by_rules(rank, total)
+            # 비율 및 이원화 등급 계산
             pct = (rank / total) * 100
+            g9 = calculate_9grade(pct)
+            g5 = calculate_5grade_by_rules(rank, total)
             
-            updated_list.append({"category": cat, "name": name, "rank": rank, "total": total, "hours": hours, "pct": pct, "grade5": g5})
+            updated_list.append({"category": cat, "name": name, "rank": rank, "total": total, "hours": hours, "pct": pct, "grade9": g9, "grade5": g5})
             st.write("---")
             
     st.session_state.subjects_data = updated_list
 
 with col_right:
-    st.markdown("### 📊 대학별 산출 점수 리포트")
+    st.markdown("### 📊 최종 결과 및 대학별 환산 리포트")
     df = pd.DataFrame(st.session_state.subjects_data)
     
     if not df.empty:
-        summary_df = df[["category", "name", "hours", "pct", "grade5"]].copy()
-        summary_df.columns = ["교과", "과목명", "시수", "백분율", "확정 등급"]
-        st.dataframe(summary_df, use_container_width=True, hide_index=True)
+        # 성적 테이블 대시보드 출력
+        view_df = df[["category", "name", "hours", "pct", "grade9", "grade5"]].copy()
+        view_df.columns = ["교과", "과목명", "시수", "백분율", "9등급제 결과", "5등급제 결과"]
+        st.dataframe(view_df, use_container_width=True, hide_index=True)
         
-        total_h = df["hours"].sum()
-        df["weighted_g5"] = df["grade5"] * df["hours"]
-        simple_avg = df["weighted_g5"].sum() / total_h if total_h > 0 else 5.0
-        st.subheader(f"🏫 내신 평균 등급: {simple_avg:.2f} 등급")
+        # 1. 가중평균 평균 등급 산출 (이원화 표시)
+        total_hours = df["hours"].sum()
+        avg_g9 = (df["grade9"] * df["hours"]).sum() / total_hours if total_hours > 0 else 9.0
+        avg_g5 = (df["grade5"] * df["hours"]).sum() / total_hours if total_hours > 0 else 5.0
+        
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            st.metric(label="📊 [현행 표준] 9등급제 평균", value=f"{avg_g9:.2f} 등급")
+        with col_m2:
+            st.metric(label="✨ [개편안] 5등급제 평균", value=f"{avg_g5:.2f} 등급")
+            
         st.write("---")
         
-        st.markdown("#### 🎯 주요 대학별 실제 전형 환산 점수")
+        # 2. 대학 그룹 인터페이스 (클릭형 필터링 구현)
+        st.markdown("#### 🏫 대학 그룹 필터")
+        selected_group = st.radio(
+            "조회할 대학 그룹을 선택하세요:",
+            ["수도권 상위대학", "수도권 주요대학", "지방거점국립대", "교대"],
+            horizontal=True
+        )
+        
+        # 선택한 그룹의 대학교 점수 산출
         calculated_univs = []
-        for univ_name, info in UNIV_FORMULAS.items():
-            total_weighted_points = 0
+        for univ_name, info in UNIV_DATABASE.items():
+            if info["group"] != selected_group:
+                continue
+                
+            total_w_p9 = 0
+            total_w_p5 = 0
             total_hours_count = 0
             
-            for index, row in df.iterrows():
-                if info["group"] != "교대" and row["category"] == "기타/예체능":
+            for _, row in df.iterrows():
+                # 교대 그룹이 아니면 예체능 과목 정량 산출에서 제외 처리하는 범용 규칙 유지
+                if selected_group != "교대" and row["category"] == "기타/예체능":
                     continue
                     
-                grade = row["grade5"]
                 hours = row["hours"]
-                pt = info["grade_points"].get(grade, info["grade_points"][5])
+                p9 = info["grade_points_9"].get(row["grade9"], 0)
+                p5 = info["grade_points_5"].get(row["grade5"], 0)
                 
-                total_weighted_points += pt * hours
+                total_w_p9 += p9 * hours
+                total_w_p5 += p5 * hours
                 total_hours_count += hours
                 
             if total_hours_count > 0:
-                final_score = total_weighted_points / total_hours_count
+                final_score_9 = total_w_p9 / total_hours_count
+                final_score_5 = total_w_p5 / total_hours_count
+                
                 calculated_univs.append({
                     "대학교": univ_name,
-                    "그룹": info["group"],
-                    "내 점수": f"{final_score:.2f} 점",
-                    "만점 기준": f"{info['max_score']} 점",
-                    "전형 특징": info["desc"]
+                    "9등급제 환산 점수": f"{final_score_9:.2f} / 100.00",
+                    "5등급제 환산 점수": f"{final_score_5:.2f} / 100.00"
                 })
                 
         res_df = pd.DataFrame(calculated_univs)
+        st.subheader(f"🎯 {selected_group} 소속 대학 환산 점수표")
         st.table(res_df)
         
-        # 💡 이미지 검증용 확인 섹션
-        with st.expander("🔍 등급 산정 로직 검증 결과 보기"):
-            st.info("실제 데이터 178명 입력 시: 18등은 1등급, 61등은 2등급, 62등은 3등급으로 이미지 속 기준표와 완벽히 동치됩니다.")
+    else:
+        st.warning("왼쪽 입력 칸에 한 개 이상의 과목 정보를 추가해 주세요.")
