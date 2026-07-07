@@ -53,10 +53,12 @@ st.write("---")
 # --- 3. 세션 상태 초기화 ---
 if 'subjects_data' not in st.session_state:
     st.session_state.subjects_data = [
-        {"category": "수학", "name": "대수", "type": "일반(공통)", "rank": 5, "total": 200, "achievement": "A", "hours": 4},
-        {"category": "수학", "name": "기하", "type": "진로선택", "rank": 1, "total": 200, "achievement": "A", "hours": 3},
-        {"category": "국어", "name": "독서와 작문", "type": "일반(공통)", "rank": 14, "total": 200, "achievement": "A", "hours": 4},
-        {"category": "과학", "name": "물리학Ⅱ", "type": "진로선택", "rank": 1, "total": 200, "achievement": "B", "hours": 3}
+        {"category": "국어", "name": "공통국어1", "type": "일반(공통)", "rank": 5, "total": 225, "achievement": "A", "hours": 4},
+        {"category": "수학", "name": "공통수학1", "type": "일반(공통)", "rank": 1, "total": 225, "achievement": "A", "hours": 4},
+        {"category": "영어", "name": "공통영어1", "type": "일반(공통)", "rank": 14, "total": 225, "achievement": "A", "hours": 4},
+        {"category": "사회", "name": "통합사회1", "type": "일반(공통)", "rank": 1, "total": 225, "achievement": "A", "hours": 4}
+        {"category": "사회", "name": "한국사1", "type": "일반(공통)", "rank": 1, "total": 225, "achievement": "A", "hours": 3}
+        {"category": "과학", "name": "통합과학1", "type": "일반(공통)", "rank": 1, "total": 225, "achievement": "A", "hours": 4}
     ]
 
 col_left, col_right = st.columns([5, 4])
