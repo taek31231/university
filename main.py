@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 st.set_page_config(
-    page_title="2028 내신 계산기",
+    page_title="2028 내신 종합 분석 및 38개대 실전 환산기",
     page_icon="🎓",
     layout="wide"
 )
@@ -28,14 +28,13 @@ def calculate_5grade_by_rules(rank, total_students):
         if rank <= cut_rank: return grade_idx + 1
     return 5
 
-# 38개 대학 입학처 환산점 마스터 테이블
 UNIV_DATABASE = {
     "서울대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98, 3:95, 4:90, 5:80, 6:70, 7:55, 8:40, 9:20}, "points_5": {1:100, 2:97, 3:92, 4:80, 5:50}},
     "연세대": {"group": "수도권 상위대학", "points_9": {1:100, 2:95, 3:87.5, 4:75, 5:60, 6:40, 7:25, 8:10, 9:0}, "points_5": {1:100, 2:95, 3:85, 4:70, 5:50}},
     "고려대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98, 3:94, 4:86, 5:70, 6:50, 7:30, 8:10, 9:0}, "points_5": {1:100, 2:98, 3:93, 4:82, 5:60}},
     "서강대": {"group": "수도권 상위대학", "points_9": {1:100, 2:99, 3:97, 4:90, 5:80, 6:70, 7:50, 8:30, 9:0}, "points_5": {1:100, 2:99, 3:96, 4:85, 5:65}},
     "성균관대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98, 3:95, 4:85, 5:70, 6:50, 7:30, 8:10, 9:0}, "points_5": {1:100, 2:98, 3:94, 4:80, 5:60}},
-    "한양대": {"group": "수도권 상위대학", "points_9": {1:100, 2:97, 3:94, 4:88, 5:75, 6:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:97, 3:93, 4:84, 5:55}},
+    "한양대": {"group": "수도권 상위대학", "points_9": {1:100, 2:97, 3:94, 4:88, 5:75, 5:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:97, 3:93, 4:84, 5:55}},
     "이화여대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98, 3:96, 4:90, 5:80, 6:60, 7:40, 8:20, 9:0}, "points_5": {1:100, 2:98, 3:95, 4:86, 5:60}},
     "중앙대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98.5, 3:96.5, 4:92, 5:85, 6:70, 7:50, 8:30, 9:0}, "points_5": {1:100, 2:98.5, 3:95.5, 4:88, 5:65}},
     "경희대": {"group": "수도권 상위대학", "points_9": {1:100, 2:96, 3:89, 4:77, 5:60, 6:40, 7:23, 8:11, 9:0}, "points_5": {1:100, 2:98, 3:94, 4:82, 5:55}},
@@ -73,8 +72,8 @@ UNIV_DATABASE = {
     "부산교대": {"group": "교대", "points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:95, 3:88, 4:75, 5:45}}
 }
 
-st.title("🎓 2028 개편 내신 계산기")
-st.markdown("### 석차 산출")
+st.title("🎓 2028 개편 내신 종합 분석 및 38개대 실전 환산기")
+st.markdown("### 과목별 정밀 성적 분석 기능 및 38개 대학 결합 환산 통합 대시보드")
 st.write("---")
 
 if 'subjects_data' not in st.session_state:
@@ -110,7 +109,6 @@ with col_left:
 
         with st.container():
             st.markdown(f"##### **과목 #{i+1}**")
-            # 💡 두 줄 레이아웃으로 변경하여 교과 정보와 성적 요소를 모두 여유 있게 배치
             cc1, cc2 = st.columns([2, 3])
             with cc1:
                 cat = cc1.selectbox("교과", ["국어", "수학", "영어", "사회", "과학", "기타/예체능"], index=["국어", "수학", "영어", "사회", "과학", "기타/예체능"].index(sub['category']), key=f"cat_{i}")
@@ -119,22 +117,18 @@ with col_left:
                 name = cc2.text_input("과목명", value=sub['name'], key=f"name_{i}")
                 hours = cc2.number_input("이수시수", min_value=1, max_value=10, value=sub['hours'], key=f"hours_{i}")
             
-            # 💡 등급과 성취도 입력을 제한 없이 한 화면에 제공하는 패널 구성
             cc3, cc4, cc5, cc6 = st.columns([2, 2, 2, 2])
             with cc3: rank = cc3.number_input("석차(등)", min_value=1, value=sub_rank, key=f"rank_{i}")
             with cc4: total = cc4.number_input("수강자(명)", min_value=1, value=sub_total, key=f"total_{i}")
             with cc5: ach = cc5.selectbox("성취도", ["A", "B", "C"], index=["A", "B", "C"].index(sub_achievement), key=f"ach_{i}")
             with cc6: a_rat = cc6.number_input("A비율(%)", min_value=0.0, max_value=100.0, value=sub_a_ratio, key=f"arat_{i}")
             
-            # --- 등급 및 백분위 공통 연산 가동 ---
             pct = (rank / total) * 100 if total > 0 else 100.0
             
             if stype == "일반(공통)":
                 g9 = calculate_9grade(pct)
                 g5 = calculate_5grade_by_rules(rank, total)
             else:
-                # 💡 진로선택과목일 때, 사용자가 수강자 수/석차를 정밀하게 기입했다면 이를 우선 반영하도록 구조 개선
-                # 만약 석차가 초기값(1등)이 아니고 연산된 퍼센트가 유의미하다면 석차 기반 등급 도출, 그 외엔 분포비율 역산 적용
                 if rank > 1 or total != 200:
                     g9 = calculate_9grade(pct)
                     g5 = calculate_5grade_by_rules(rank, total)
@@ -158,10 +152,8 @@ with col_right:
     df = pd.DataFrame(st.session_state.subjects_data)
     
     if not df.empty:
-        # 일반선택 혹은 석차가 명확히 기입된 과목을 평균 산출 대상에 통합
         reg_only = df[(df["type"] == "일반(공통)") | (df["rank"] > 1) | (df["total"] != 200)]
-        if reg_only.empty:
-            reg_only = df # 데이터가 아예 없을 때의 예외 방어
+        if reg_only.empty: reg_only = df
             
         total_h = reg_only["hours"].sum()
         avg_g9 = (reg_only["grade9"] * reg_only["hours"]).sum() / total_h if total_h > 0 else 1.0
@@ -171,6 +163,21 @@ with col_right:
         with m_c1: st.metric(label="📊 주요 석차산출 과목 9등급제 평균", value=f"{avg_g9:.2f} 등급")
         with m_c2: st.metric(label="✨ 주요 석차산출 과목 5등급제 평균", value=f"{avg_g5:.2f} 등급")
             
+        st.write("---")
+        
+        # 💡 [요청 기능 추가] 단일 과목별 상세 백분위 및 산정 등급 모니터링 테이블 생성
+        st.markdown("#### 🎯 단일 과목별 성적 정밀 분석")
+        analysis_df = pd.DataFrame({
+            "과목명": df["name"],
+            "유형": df["type"],
+            "이수시수": df["hours"].astype(str) + "단위",
+            "석차/수강자": df["rank"].astype(str) + " / " + df["total"].astype(str),
+            "상위 백분위": df["pct"].map(lambda x: f"{x:.2f}%" if x > 0 else "- (역산제외)"),
+            "9등급제 결과": df["grade9"].map(lambda x: f"{x:.2f}등급" if isinstance(x, float) else f"{x}등급"),
+            "5등급제 결과": df["grade5"].map(lambda x: f"{x:.2f}등급" if isinstance(x, float) else f"{x}등급")
+        })
+        st.dataframe(analysis_df, use_container_width=True)
+        
         st.write("---")
         st.markdown("#### 🏫 대학 그룹 선택 필터")
         selected_group = st.radio(
@@ -190,7 +197,7 @@ with col_right:
                     score_5 = (dg_target['grade5'].map(info['points_5']) * dg_target['hours']).sum() / dg_target['hours'].sum()
                 else: score_9, score_5 = 0, 0
             
-            # 2. 경희대학교식 반영 엔진 (일반 80% + 진로상위3개 20%)
+            # 2. 경희대학교식 반영 엔진
             elif univ_name == "경희대":
                 khu_reg = df[df["type"] == "일반(공통)"]
                 if khu_reg.empty: khu_reg = df
