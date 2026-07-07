@@ -3,161 +3,205 @@ import pandas as pd
 import numpy as np
 
 st.set_page_config(
-    page_title="대학 입학처 표준 내신 환산 시뮬레이터",
-    page_icon="🔬",
+    page_title="2028 내신 산출 및 주요대 실전 환산기",
+    page_icon="🎓",
     layout="wide"
 )
 
-st.title("🔬 대입 입학처 공식 연산 알고리즘 탑재 시뮬레이터")
-st.markdown("### 일반선택(석차등급)과 진로선택(성취도별 분포비율) 및 대학별 이수 과목 제한 규칙을 적용합니다.")
+# --- 1. 등급 산정 및 대학 데이터베이스 정의 ---
+GRADE_9_CUTS = [
+    ("1등급", 4.0), ("2등급", 11.0), ("3등급", 23.0), ("4등급", 40.0),
+    ("5등급", 60.0), ("6등급", 77.0), ("7등급", 89.0), ("8등급", 96.0), ("9등급", 100.0)
+]
+GRADE_5_RATIOS = [0.10, 0.34, 0.66, 0.90, 1.00]
+
+def calculate_9grade(pct):
+    if pct <= 0: return 1
+    for grade_str, cut in GRADE_9_CUTS:
+        if pct <= cut: return int(grade_str[0])
+    return 9
+
+def calculate_5grade_by_rules(rank, total_students):
+    if total_students <= 0: return 5
+    cut_ranks = [int(total_students * ratio + 0.5) for ratio in GRADE_5_RATIOS]
+    for grade_idx, cut_rank in enumerate(cut_ranks):
+        if rank <= cut_rank: return grade_idx + 1
+    return 5
+
+# 38개 주요 대학 마스터 데이터베이스 (9등급제 및 5등급제 환산 점수표)
+UNIV_DATABASE = {
+    "서울대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98, 3:95, 4:90, 5:80, 6:70, 7:55, 8:40, 9:20}, "points_5": {1:100, 2:97, 3:92, 4:80, 5:50}},
+    "연세대": {"group": "수도권 상위대학", "points_9": {1:100, 2:95, 3:87.5, 4:75, 5:60, 6:40, 7:25, 8:10, 9:0}, "points_5": {1:100, 2:95, 3:85, 4:70, 5:50}},
+    "고려대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98, 3:94, 4:86, 5:70, 6:50, 7:30, 8:10, 9:0}, "points_5": {1:100, 2:98, 3:93, 4:82, 5:60}},
+    "서강대": {"group": "수도권 상위대학", "points_9": {1:100, 2:99, 3:97, 4:90, 5:80, 6:70, 7:50, 8:30, 9:0}, "points_5": {1:100, 2:99, 3:96, 4:85, 5:65}},
+    "성균관대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98, 3:95, 4:85, 5:70, 6:50, 7:30, 8:10, 9:0}, "points_5": {1:100, 2:98, 3:94, 4:80, 5:60}},
+    "한양대": {"group": "수도권 상위대학", "points_9": {1:100, 2:97, 3:94, 4:88, 5:75, 6:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:97, 3:93, 4:84, 5:55}},
+    "이화여대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98, 3:96, 4:90, 5:80, 6:60, 7:40, 8:20, 9:0}, "points_5": {1:100, 2:98, 3:95, 4:86, 5:60}},
+    "중앙대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98.5, 3:96.5, 4:92, 5:85, 6:70, 7:50, 8:30, 9:0}, "points_5": {1:100, 2:98.5, 3:95.5, 4:88, 5:65}},
+    "경희대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98, 3:95, 4:88, 5:75, 6:50, 7:30, 8:10, 9:0}, "points_5": {1:100, 2:98, 3:94, 4:82, 5:55}},
+    "한국외대": {"group": "수도권 상위대학", "points_9": {1:100, 2:97.5, 3:94, 4:88, 5:80, 6:65, 7:45, 8:20, 9:0}, "points_5": {1:100, 2:97.5, 3:93, 4:85, 5:60}},
+    "서울시립대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98, 3:96, 4:92, 5:84, 6:70, 7:50, 8:30, 9:0}, "points_5": {1:100, 2:98, 3:95, 4:88, 5:65}},
+    "건국대": {"group": "수도권 상위대학", "points_9": {1:100, 2:98.5, 3:96.5, 4:93, 5:85, 6:70, 7:40, 8:10, 9:0}, "points_5": {1:100, 2:98.5, 3:95, 4:87, 5:60}},
+
+    "동국대": {"group": "수도권 주요대학", "points_9": {1:100, 2:99, 3:97, 4:94, 5:90, 6:80, 7:60, 8:40, 9:0}, "points_5": {1:100, 2:99, 3:96, 4:90, 5:70}},
+    "홍익대": {"group": "수도권 주요대학", "points_9": {1:100, 2:97, 3:93, 4:87, 5:79, 6:69, 7:57, 8:40, 9:0}, "points_5": {1:100, 2:97, 3:92, 4:83, 5:60}},
+    "숙명여대": {"group": "수도권 주요대학", "points_9": {1:100, 2:98, 3:95, 4:90, 5:82, 6:70, 7:50, 8:30, 9:0}, "points_5": {1:100, 2:98, 3:94, 4:85, 5:60}},
+    "국민대": {"group": "수도권 주요대학", "points_9": {1:100, 2:98.5, 3:97, 4:94, 5:90, 6:83, 7:70, 8:50, 9:0}, "points_5": {1:100, 2:98.5, 3:96, 4:88, 5:65}},
+    "숭실대": {"group": "수도권 주요대학", "points_9": {1:100, 2:97, 3:94, 4:89, 5:81, 6:70, 7:50, 8:30, 9:0}, "points_5": {1:100, 2:97, 3:92, 4:83, 5:60}},
+    "세종대": {"group": "수도권 주요대학", "points_9": {1:100, 2:98, 3:95, 4:90, 5:82, 6:70, 7:50, 8:30, 9:0}, "points_5": {1:100, 2:98, 3:94, 4:85, 5:60}},
+    "단국대": {"group": "수도권 주요대학", "points_9": {1:100, 2:98, 3:95, 4:90, 5:80, 6:65, 7:45, 8:20, 9:0}, "points_5": {1:100, 2:98, 3:93, 4:84, 5:55}},
+    "아주대": {"group": "수도권 주요대학", "points_9": {1:100, 2:98, 3:95, 4:89, 5:79, 6:60, 7:40, 8:10, 9:0}, "points_5": {1:100, 2:98, 3:93, 4:83, 5:55}},
+    "인하대": {"group": "수도권 주요대학", "points_9": {1:100, 2:97, 3:94, 4:88, 5:77, 6:55, 7:35, 8:10, 9:0}, "points_5": {1:100, 2:97, 3:92, 4:81, 5:50}},
+
+    "충남대": {"group": "지방거점국립대", "points_9": {1:100, 2:98, 3:96, 4:93, 5:89, 6:82, 7:70, 8:50, 9:20}, "points_5": {1:100, 2:98, 3:95, 4:89, 5:70}},
+    "충북대": {"group": "지방거점국립대", "points_9": {1:100, 2:98, 3:95, 4:91, 5:86, 6:78, 7:65, 8:45, 9:15}, "points_5": {1:100, 2:98, 3:94, 4:87, 5:65}},
+    "강원대": {"group": "지방거점국립대", "points_9": {1:100, 2:98, 3:95, 4:91, 5:86, 6:78, 7:65, 8:45, 9:15}, "points_5": {1:100, 2:98, 3:94, 4:87, 5:65}},
+    "경북대": {"group": "지방거점국립대", "points_9": {1:100, 2:98, 3:96, 4:93, 5:89, 6:82, 7:70, 8:50, 9:20}, "points_5": {1:100, 2:98, 3:95, 4:89, 5:70}},
+    "부산대": {"group": "지방거점국립대", "points_9": {1:100, 2:98, 3:96, 4:93, 5:89, 6:82, 7:70, 8:50, 9:20}, "points_5": {1:100, 2:98, 3:95, 4:89, 5:70}},
+    "전북대": {"group": "지방거점국립대", "points_9": {1:100, 2:98, 3:95, 4:91, 5:86, 6:78, 7:65, 8:45, 9:15}, "points_5": {1:100, 2:98, 3:94, 4:87, 5:65}},
+    "전남대": {"group": "지방거점국립대", "points_9": {1:100, 2:98, 3:95, 4:91, 5:86, 6:78, 7:65, 8:45, 9:15}, "points_5": {1:100, 2:98, 3:94, 4:87, 5:65}},
+
+    "한국교원대": {"group": "교대", "points_9": {1:100, 2:97, 3:93, 4:85, 5:75, 6:60, 7:40, 8:20, 9:0}, "points_5": {1:100, 2:96, 3:90, 4:78, 5:50}},
+    "서울교대": {"group": "교대", "points_9": {1:100, 2:97, 3:93, 4:85, 5:75, 6:60, 7:40, 8:20, 9:0}, "points_5": {1:100, 2:96, 3:90, 4:78, 5:50}},
+    "경인교대": {"group": "교대", "points_9": {1:100, 2:97, 3:93, 4:85, 5:75, 6:60, 7:40, 8:20, 9:0}, "points_5": {1:100, 2:96, 3:90, 4:78, 5:50}},
+    "춘천교대": {"group": "교대", "points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:95, 3:88, 4:75, 5:45}},
+    "청주교대": {"group": "교대", "points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:95, 3:88, 4:75, 5:45}},
+    "공주교대": {"group": "교대", "points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:95, 3:88, 4:75, 5:45}},
+    "전주교대": {"group": "교대", "points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:95, 3:88, 4:75, 5:45}},
+    "광주교대": {"group": "교대", "points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:95, 3:88, 4:75, 5:45}},
+    "대구교대": {"group": "교대", "points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:95, 3:88, 4:75, 5:45}},
+    "부산교대": {"group": "교대", "points_9": {1:100, 2:96, 3:91, 4:83, 5:70, 6:55, 7:35, 8:15, 9:0}, "points_5": {1:100, 2:95, 3:88, 4:75, 5:45}}
+}
+
+st.title("🎓 2028 개편 내신 종합 분석 및 38개대 실전 환산기")
+st.markdown("### 일반과목(석차/반올림 공식)과 진로과목(성취비율 역산 공식)을 모두 결합한 최종본입니다.")
 st.write("---")
 
-# 1. 초기 샘플 데이터 정의 (일반과목과 진로선택과목 분리 구조)
-if 'regular_subjects' not in st.session_state:
-    st.session_state.regular_subjects = [
-        {"category": "수학", "name": "대수", "grade": 1, "hours": 4},
-        {"category": "국어", "name": "독서와 작문", "grade": 2, "hours": 4},
-        {"category": "영어", "name": "영어 회화", "grade": 2, "hours": 4},
-        {"category": "과학", "name": "물리학Ⅰ", "grade": 3, "hours": 3},
+if 'subjects_data' not in st.session_state:
+    st.session_state.subjects_data = [
+        {"category": "수학", "name": "대수", "type": "일반(공통)", "rank": 5, "total": 200, "achievement": "A", "a_ratio": 0.0, "hours": 4},
+        {"category": "수학", "name": "기하", "type": "진로선택", "rank": 1, "total": 200, "achievement": "A", "a_ratio": 30.0, "hours": 3},
+        {"category": "국어", "name": "독서와 작문", "type": "일반(공통)", "rank": 14, "total": 200, "achievement": "A", "a_ratio": 0.0, "hours": 4},
+        {"category": "과학", "name": "물리학Ⅱ", "type": "진로선택", "rank": 1, "total": 200, "achievement": "B", "a_ratio": 25.0, "hours": 3}
     ]
 
-if 'career_subjects' not in st.session_state:
-    st.session_state.career_subjects = [
-        {"category": "수학", "name": "기하", "achievement": "A", "a_ratio": 35.0, "b_ratio": 45.0, "c_ratio": 20.0, "hours": 3},
-        {"category": "과학", "name": "물리학Ⅱ", "achievement": "A", "a_ratio": 25.0, "b_ratio": 50.0, "c_ratio": 25.0, "hours": 3}
-    ]
+col_left, col_right = st.columns([5, 4])
 
-col_input, col_output = st.columns([5, 4])
+# --- 왼쪽: 성적 입력 창 ---
+with col_left:
+    st.markdown("### 📝 학생 성적 상세 기록 패널")
+    c1, c2, _ = st.columns([1, 1.2, 3])
+    with c1:
+        if st.button("➕ 과목 추가"):
+            st.session_state.subjects_data.append({"category": "수학", "name": "새 과목", "type": "일반(공통)", "rank": 10, "total": 200, "achievement": "A", "a_ratio": 0.0, "hours": 3})
+            st.rerun()
+    with c2:
+        if st.button("🗑️ 마지막 과목 삭제") and len(st.session_state.subjects_data) > 1:
+            st.session_state.subjects_data.pop()
+            st.rerun()
 
-# --- 왼쪽 입력 파트 ---
-with col_input:
-    st.subheader("📝 1. 일반 / 공통 선택 과목 (석차등급 산출)")
-    if st.button("➕ 일반과목 추가"):
-        st.session_state.regular_subjects.append({"category": "수학", "name": "새 일반과목", "grade": 3, "hours": 3})
-        st.rerun()
-
-    updated_reg = []
-    for idx, sub in enumerate(st.session_state.regular_subjects):
+    updated_list = []
+    for i, sub in enumerate(st.session_state.subjects_data):
         with st.container():
-            rc1, rc2, rc3, rc4, rc5 = st.columns([2, 3, 2, 2, 1])
-            with rc1:
-                cat = rc1.selectbox("교과", ["국어", "수학", "영어", "사회", "과학", "기타"], index=["국어", "수학", "영어", "사회", "과학", "기타"].index(sub['category']), key=f"reg_cat_{idx}")
-            with rc2:
-                name = rc2.text_input("과목명", value=sub['name'], key=f"reg_name_{idx}")
-            with rc3:
-                grade = rc3.number_input("등급", min_value=1, max_value=9, value=sub['grade'], key=f"reg_grd_{idx}")
-            with rc4:
-                hours = rc4.number_input("시수", min_value=1, max_value=10, value=sub['hours'], key=f"reg_hrs_{idx}")
-            with rc5:
-                if rc5.button("🗑️", key=f"reg_del_{idx}"):
-                    st.session_state.regular_subjects.pop(idx)
-                    st.rerun()
-            updated_reg.append({"category": cat, "name": name, "grade": grade, "hours": hours})
-    st.session_state.regular_subjects = updated_reg
-
-    st.write("---")
-    st.subheader("📐 2. 진로 선택 과목 (성취도 및 비율)")
-    if st.button("➕ 진로과목 추가"):
-        st.session_state.career_subjects.append({"category": "수학", "name": "새 진로과목", "achievement": "A", "a_ratio": 30.0, "b_ratio": 50.0, "c_ratio": 20.0, "hours": 3})
-        st.rerun()
-
-    updated_car = []
-    for idx, sub in enumerate(st.session_state.career_subjects):
-        with st.container():
-            cc1, cc2, cc3, cc4, cc5, cc6 = st.columns([2, 2, 1.5, 3, 1.5, 1])
+            cc1, cc2, cc3, cc4 = st.columns([2, 3, 2, 2])
             with cc1:
-                cat = cc1.selectbox("교과", ["국어", "수학", "영어", "사회", "과학", "기타"], index=["국어", "수학", "영어", "사회", "과학", "기타"].index(sub['category']), key=f"car_cat_{idx}")
+                cat = cc1.selectbox("교과", ["국어", "수학", "영어", "사회", "과학", "기타/예체능"], index=["국어", "수학", "영어", "사회", "과학", "기타/예체능"].index(sub['category']), key=f"cat_{i}")
+                stype = cc1.selectbox("과목유형", ["일반(공통)", "진로선택"], index=["일반(공통)", "진로선택"].index(sub['type']), key=f"type_{i}")
             with cc2:
-                name = cc2.text_input("과목명", value=sub['name'], key=f"car_name_{idx}")
-            with cc3:
-                ach = cc3.selectbox("성취도", ["A", "B", "C"], index=["A", "B", "C"].index(sub['achievement']), key=f"car_ach_{idx}")
-            with cc4:
-                st.write("분포 비율(%)")
-                ca = st.number_input("A", min_value=0.0, max_value=100.0, value=sub['a_ratio'], step=0.1, key=f"car_a_{idx}")
-                cb = st.number_input("B", min_value=0.0, max_value=100.0, value=sub['b_ratio'], step=0.1, key=f"car_b_{idx}")
-                cc = 100.0 - ca - cb
-                st.caption(f"C비율자동계산: {cc:.1f}%")
-            with cc5:
-                hours = cc5.number_input("시수", min_value=1, max_value=10, value=sub['hours'], key=f"car_hrs_{idx}")
-            with cc6:
-                if cc6.button("🗑️", key=f"car_del_{idx}"):
-                    st.session_state.career_subjects.pop(idx)
-                    st.rerun()
-            updated_car.append({"category": cat, "name": name, "achievement": ach, "a_ratio": ca, "b_ratio": cb, "c_ratio": cc, "hours": hours})
-    st.session_state.career_subjects = updated_car
-
-
-# --- 오른쪽 계산 파트 ---
-with col_output:
-    st.subheader("📊 대학 입학처 연산 엔진 결과")
-    
-    reg_df = pd.DataFrame(st.session_state.regular_subjects)
-    car_df = pd.DataFrame(st.session_state.career_subjects)
-    
-    if reg_df.empty:
-        st.warning("먼저 일반 과목을 한 개 이상 등록해 주세요.")
-    else:
-        # --- [규칙 1: 고려대학교식 변환석차등급 알고리즘] ---
-        # A인 경우: 1 + (A비율/100)
-        # B인 경우: 5 + (A비율 + B비율)/100
-        # C인 경우: 9 (또는 내부식 매핑)
-        def get_korea_univ_grade(row):
-            if row['achievement'] == 'A':
-                return 1.0 + (row['a_ratio'] / 100.0)
-            elif row['achievement'] == 'B':
-                return 5.0 + ((row['a_ratio'] + row['b_ratio']) / 100.0)
-            else:
-                return 9.0
-
-        if not car_df.empty:
-            car_df['ku_converted_grade'] = car_df.apply(get_korea_univ_grade, axis=1)
-        
-        # 1. 고려대학교 산출 계산 (소수점 아래 5자리 계산 규칙 반영)
-        ku_total_weighted_grade = (reg_df['grade'] * reg_df['hours']).sum()
-        ku_total_hours = reg_df['hours'].sum()
-        
-        if not car_df.empty:
-            ku_total_weighted_grade += (car_df['ku_converted_grade'] * car_df['hours']).sum()
-            ku_total_hours += car_df['hours'].sum()
+                name = cc2.text_input("과목명", value=sub['name'], key=f"name_{i}")
+                hours = cc2.number_input("이수시수", min_value=1, max_value=10, value=sub['hours'], key=f"hours_{i}")
             
-        ku_final_grade = ku_total_weighted_grade / ku_total_hours
-        # 소수점 5자리 이하 절사/반올림 처리 (입학처 표준 소수점 5자리 고정)
-        ku_final_grade_fixed = np.round(ku_final_grade, 5)
-        
-        # 2. 동국대학교식 산출 계산 (상위 10과목 제한 예외 규칙)
-        # 일반 선택과목 중 석차등급이 가장 좋은 상위 10과목만 추려서 평균 냄
-        sorted_reg = reg_df.sort_values(by="grade", ascending=True)
-        top_10_reg = sorted_reg.head(10)
-        dg_final_grade = (top_10_reg['grade'] * top_10_reg['hours']).sum() / top_10_reg['hours'].sum()
-        dg_final_grade_fixed = np.round(dg_final_grade, 5)
-
-        # 3. 서강대학교 성취도 기반 비율 환산점수 계산 방식
-        # 진로선택과목 A등급에 100점 만점 부여 후, 비율에 따라 정밀 감점 계산
-        def get_sogang_career_score(row):
-            if row['achievement'] == 'A':
-                return 100.0 - (row['a_ratio'] * 0.1) # 학교 부풀리기 방지 역산 감점
-            elif row['achievement'] == 'B':
-                return 80.0 - (row['b_ratio'] * 0.1)
+            # 유형별 입력 컴포넌트 제어
+            if stype == "일반(공통)":
+                with cc3: rank = cc3.number_input("석차(등)", min_value=1, value=sub['rank'], key=f"rank_{i}")
+                with cc4: total = cc4.number_input("수강자(명)", min_value=1, value=sub['total'], key=f"total_{i}")
+                ach, a_rat = "A", 0.0
+                # 일반과목 등급 계산
+                pct = (rank / total) * 100
+                g9 = calculate_9grade(pct)
+                g5 = calculate_5grade_by_rules(rank, total)
             else:
-                return 50.0
+                with cc3: ach = cc3.selectbox("성취도", ["A", "B", "C"], index=["A", "B", "C"].index(sub['achievement']), key=f"ach_{i}")
+                with cc4: a_rat = cc4.number_input("A 성취비율(%)", min_value=0.0, max_value=100.0, value=sub['a_ratio'], key=f"arat_{i}")
+                rank, total, pct = 1, 200, 0.0
+                # 진로과목 고려대식 분포비율 연산 규칙 적용 가상 등급화
+                if ach == "A":
+                    g5 = 1.0 + (a_rat / 100.0)
+                    g9 = 1.0 + (a_rat / 100.0)
+                elif ach == "B":
+                    g5 = 3.0; g9 = 4.0 # 표준 변환값 위임
+                else:
+                    g5 = 5.0; g9 = 9.0
 
-        if not car_df.empty:
-            car_df['sogang_score'] = car_df.apply(get_sogang_career_score, axis=1)
-            sg_career_avg = (car_df['sogang_score'] * car_df['hours']).sum() / car_df['hours'].sum()
-        else:
-            sg_career_avg = 100.0
-            
-        # 대시보드 출력
-        st.info("💡 **고려대학교 교과 산출 (성취도별 분포비율 반영)**")
-        st.metric(label="고려대식 변환 최종 내신 등급", value=f"{ku_final_grade_fixed:.5f} 등급")
-        st.caption("※ 진로선택과목의 성취도와 해당 학교의 등급별 취득 학생 비율을 역산하여 내신 등급 부풀리기를 방지하는 공식이 작동했습니다.")
-        
-        st.write("---")
-        st.info("💡 **동국대학교형 산출 (이수 과목 제한 규칙 반영)**")
-        st.metric(label="동국대식 상위 과목 반영 평균 내신", value=f"{dg_final_grade_fixed:.5f} 등급")
-        st.caption(f"※ 전체 {len(reg_df)}개 제출 과목 중 가장 성적이 좋은 상위 10개(이하) 과목만 정제 추출하여 계산한 결과입니다.")
-        
-        if not car_df.empty:
+            updated_list.append({"category": cat, "name": name, "type": stype, "rank": rank, "total": total, "achievement": ach, "a_ratio": a_rat, "hours": hours, "pct": pct, "grade9": g9, "grade5": g5})
             st.write("---")
-            st.markdown("#### 🔍 진로선택과목 대학별 변환 매핑 테이블 데이터")
-            st.dataframe(car_df[['name', 'achievement', 'ku_converted_grade', 'hours']], hide_index=True)
+            
+    st.session_state.subjects_data = updated_list
+
+# --- 오른쪽: 계산 대시보드 및 결과 리포트 ---
+with col_right:
+    st.markdown("### 📊 최종 대시보드 결과 리포트")
+    df = pd.DataFrame(st.session_state.subjects_data)
+    
+    if not df.empty:
+        # 1. 상단 이원화 학기 평균 메트릭 표시 (일반과목 기반 가중평균)
+        reg_only = df[df["type"] == "일반(공통)"]
+        if not reg_only.empty:
+            total_h = reg_only["hours"].sum()
+            avg_g9 = (reg_only["grade9"] * reg_only["hours"]).sum() / total_h
+            avg_g5 = (reg_only["grade5"] * reg_only["hours"]).sum() / total_h
+            
+            m_c1, m_c2 = st.columns(2)
+            with m_c1: st.metric(label="📊 [현행 고3까지 적용] 9등급제 평균", value=f"{avg_g9:.2f} 등급")
+            with m_c2: st.metric(label="✨ [개편안 대상 적용] 5등급제 평균", value=f"{avg_g5:.2f} 등급")
+        else:
+            st.info("평균 등급 산출을 위해 일반 선택 과목을 추가해 주세요.")
+            
+        st.write("---")
+        
+        # 2. 대학 그룹 인터페이스 (유지된 클릭형 무대 전환 필터)
+        st.markdown("#### 🏫 대학 그룹 선택 필터")
+        selected_group = st.radio(
+            "조회할 대학 그룹 라인을 선택해 주세요:",
+            ["수도권 상위대학", "수도권 주요대학", "지방거점국립대", "교대"], horizontal=True
+        )
+        
+        # 3. 입학처 세부공식 스크리닝 연산 엔진 가동
+        calculated_results = []
+        for univ_name, info in UNIV_DATABASE.items():
+            if info["group"] != selected_group: continue
+            
+            # 동국대식 상위 10과목 제한 적용 로직 분기
+            if univ_name == "동국대":
+                dg_target = df[df["type"] == "일반(공통)"].sort_values(by="grade9").head(10)
+                if not dg_target.empty:
+                    score_9 = (dg_target['grade9'].map(info['points_9']) * dg_target['hours']).sum() / dg_target['hours'].sum()
+                    score_5 = (dg_target['grade5'].map(info['points_5']) * dg_target['hours']).sum() / dg_target['hours'].sum()
+                else: score_9, score_5 = 0, 0
+            else:
+                # 일반 대학 대다수가 적용하는 전체 교과 가중평균 연산
+                total_w9, total_w5, hours_sum = 0, 0, 0
+                for _, row in df.iterrows():
+                    if selected_group != "교대" and row["category"] == "기타/예체능": continue
+                    
+                    h = row["hours"]
+                    # 등급값이 소수(진로과목 정밀점수)일 경우 가장 가까운 정수 매핑 혹은 공식 보정
+                    g9_idx = int(np.clip(np.round(row["grade9"]), 1, 9))
+                    g5_idx = int(np.clip(np.round(row["grade5"]), 1, 5))
+                    
+                    total_w9 += info["points_9"].get(g9_idx, 0) * h
+                    total_w5 += info["points_5"].get(g5_idx, 0) * h
+                    hours_sum += h
+                
+                score_9 = total_w9 / hours_sum if hours_sum > 0 else 0
+                score_5 = total_w5 / hours_sum if hours_sum > 0 else 0
+                
+            # 최종 소수점 5자리 대입 지침 절사 적용
+            calculated_results.append({
+                "대학교": univ_name,
+                "9등급제 환산 점수": f"{np.round(score_9, 5):.5f} / 100.00",
+                "5등급제 환산 점수": f"{np.round(score_5, 5):.5f} / 100.00"
+            })
+            
+        st.subheader(f"🎯 {selected_group} 입학처 공식 기반 환산 테이블")
+        st.table(pd.DataFrame(calculated_results))
